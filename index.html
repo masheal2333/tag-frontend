@@ -1,0 +1,1901 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- v2024-04-07 US-003/004: AI建议+批量验证+高亮+历史 -->
+<title>新闻内容标签化系统</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Microsoft YaHei', 'Segoe UI', Tahoma, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 14px;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            padding: 20px;
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .input-section, .output-section {
+            padding: 20px;
+        }
+
+        .section-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #667eea;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+            color: #555;
+        }
+
+        input[type="text"], textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+            font-family: inherit;
+        }
+
+        input[type="text"]:focus, textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        textarea {
+            min-height: 300px;
+            resize: vertical;
+            line-height: 1.6;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            font-size: 16px;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .status {
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            display: none;
+        }
+
+        .status.loading {
+            background: #fff3cd;
+            color: #856404;
+            display: block;
+        }
+
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            display: block;
+        }
+
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            display: block;
+        }
+
+        .results-container {
+            max-height: 600px;
+            overflow-y: auto;
+        }
+
+        .tag-item {
+            background: #f8f9fa;
+            border-left: 4px solid #667eea;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 0 8px 8px 0;
+            transition: all 0.3s;
+        }
+
+        .tag-item:hover {
+            background: #e9ecef;
+            transform: translateX(5px);
+        }
+
+        .tag-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .tag-name {
+            font-weight: bold;
+            color: #333;
+            font-size: 16px;
+        }
+
+        .tag-type {
+            background: #667eea;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+        }
+
+        .tag-source {
+            color: #666;
+            font-size: 12px;
+            margin-bottom: 8px;
+        }
+
+        .confidence-bar {
+            height: 6px;
+            background: #e0e0e0;
+            border-radius: 3px;
+            margin: 10px 0;
+            overflow: hidden;
+        }
+
+        .confidence-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            border-radius: 3px;
+            transition: width 0.5s ease;
+        }
+
+        .tag-details {
+            font-size: 13px;
+            color: #666;
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px dashed #ddd;
+        }
+
+        .tag-thinking {
+            background: #fff;
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 8px;
+            font-family: 'Consolas', monospace;
+            font-size: 12px;
+            color: #555;
+            white-space: pre-wrap;
+            word-break: break-word;
+            position: relative;
+        }
+
+        .highlight-keyword {
+            background: #fff3cd;
+            border-radius: 2px;
+            cursor: pointer;
+            position: relative;
+            border-bottom: 1px dashed #ffc107;
+        }
+
+        .highlight-tooltip {
+            display: none;
+            position: absolute;
+            bottom: 100%;
+            left: 0;
+            background: #333;
+            color: #fff;
+            padding: 6px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-family: 'Microsoft YaHei', sans-serif;
+            white-space: normal;
+            max-width: 300px;
+            z-index: 100;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+            pointer-events: none;
+            line-height: 1.4;
+        }
+
+        .highlight-keyword:hover .highlight-tooltip {
+            display: block;
+        }
+
+        .diff-added {
+            background: #d4edda;
+            color: #155724;
+            padding: 2px 4px;
+            border-radius: 2px;
+        }
+
+        .diff-removed {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 2px 4px;
+            border-radius: 2px;
+            text-decoration: line-through;
+        }
+
+        .version-entry {
+            background: #fff;
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            padding: 10px;
+            margin-bottom: 8px;
+        }
+
+        .version-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 6px;
+        }
+
+        .version-time {
+            font-size: 11px;
+            color: #999;
+        }
+
+        .version-diff {
+            font-size: 13px;
+            line-height: 1.5;
+            margin-top: 4px;
+            padding: 6px;
+            background: #f8f9fa;
+            border-radius: 3px;
+        }
+
+        .btn-rollback {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 3px 8px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 11px;
+        }
+
+        .btn-rollback:hover {
+            background: #c82333;
+        }
+
+        .version-history-panel {
+            margin-top: 10px;
+            max-height: 350px;
+            overflow-y: auto;
+        }
+
+        .btn-history {
+            background: #6c757d;
+            color: white;
+            border: none;
+            padding: 5px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .btn-history:hover {
+            background: #5a6268;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #999;
+        }
+
+        .empty-state svg {
+            width: 100px;
+            height: 100px;
+            margin-bottom: 20px;
+            opacity: 0.3;
+        }
+
+        .stats {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+
+        .stat-card {
+            flex: 1;
+            min-width: 150px;
+            background: linear-gradient(135deg, #f5f7fa 0%, #e4e8eb 100%);
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
+        }
+
+        .api-info {
+            background: #e7f3ff;
+            border-left: 4px solid #2196F3;
+            padding: 12px;
+            margin-bottom: 15px;
+            font-size: 13px;
+            color: #0066cc;
+        }
+
+        /* 进度条 */
+        .progress-overlay {
+            display: none;
+            padding: 30px 20px;
+        }
+
+        .progress-overlay.active {
+            display: block;
+        }
+
+        .progress-stage-text {
+            font-size: 14px;
+            color: #555;
+            margin-bottom: 12px;
+            font-weight: 500;
+            text-align: center;
+        }
+
+        .progress-spinner {
+            text-align: center;
+            margin-bottom: 15px;
+            font-size: 24px;
+            animation: spin 1.5s linear infinite;
+        }
+
+        @keyframes spin {
+            0%, 100% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* 步骤指示器 */
+        .step-indicators {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 15px;
+            padding: 0 10px;
+        }
+
+        .step-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            flex: 1;
+            position: relative;
+        }
+
+        .step-item:not(:last-child)::after {
+            content: '';
+            position: absolute;
+            top: 14px;
+            left: 55%;
+            width: 90%;
+            height: 2px;
+            background: #e0e0e0;
+            z-index: 0;
+        }
+
+        .step-item.active:not(:last-child)::after,
+        .step-item.done:not(:last-child)::after {
+            background: linear-gradient(90deg, #667eea, #764ba2);
+        }
+
+        .step-circle {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: #e0e0e0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: 600;
+            color: #999;
+            z-index: 1;
+            transition: all 0.3s;
+        }
+
+        .step-item.active .step-circle {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            animation: pulse 1.2s ease-in-out infinite;
+        }
+
+        .step-item.done .step-circle {
+            background: #28a745;
+            color: white;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.15); }
+        }
+
+        .step-label {
+            margin-top: 6px;
+            font-size: 11px;
+            color: #999;
+            transition: color 0.3s;
+        }
+
+        .step-item.active .step-label {
+            color: #667eea;
+            font-weight: 600;
+        }
+
+        .step-item.done .step-label {
+            color: #28a745;
+        }
+
+        /* 标签定义 */
+        .tag-definition {
+            background: #fffde7;
+            border: 1px solid #f0e68c;
+            border-radius: 4px;
+            padding: 8px 10px;
+            margin-top: 8px;
+            font-size: 13px;
+            color: #666;
+        }
+        .tag-definition summary {
+            cursor: pointer;
+            font-weight: 500;
+            color: #555;
+        }
+        .tag-definition .desc-text {
+            margin-top: 6px;
+            line-height: 1.5;
+        }
+
+        /* 操作按钮 */
+        .tag-actions {
+            margin-top: 10px;
+            display: flex;
+            gap: 8px;
+        }
+        .btn-sm {
+            background: #6c757d;
+            color: white;
+            border: none;
+            padding: 5px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: background 0.2s;
+        }
+        .btn-sm:hover { background: #5a6268; }
+        .btn-sm.btn-retest { background: #fd7e14; }
+        .btn-sm.btn-retest:hover { background: #e56b0a; }
+        .btn-sm.btn-confirm { background: #28a745; }
+        .btn-sm.btn-confirm:hover { background: #218838; }
+
+        /* 已确认状态 */
+        .tag-item.confirmed {
+            border-left-color: #28a745 !important;
+            border-left-width: 6px;
+            box-shadow: 0 0 0 2px rgba(40, 167, 69, 0.15);
+        }
+        .tag-item.confirmed::after {
+            content: '\2713';
+            position: absolute;
+            right: 12px;
+            top: 12px;
+            color: #28a745;
+            font-size: 20px;
+            font-weight: bold;
+        }
+        .tag-item {
+            position: relative;
+        }
+
+        /* 重测面板 */
+        .retest-panel {
+            background: #fff8f0;
+            border: 1px solid #fd7e14;
+            border-radius: 8px;
+            margin-top: 10px;
+            padding: 12px;
+        }
+        .retest-panel textarea {
+            width: 100%;
+            min-height: 80px;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 13px;
+            resize: vertical;
+            font-family: inherit;
+            line-height: 1.5;
+        }
+        .retest-panel textarea:focus {
+            outline: none;
+            border-color: #fd7e14;
+            box-shadow: 0 0 0 2px rgba(253, 126, 20, 0.2);
+        }
+        .retest-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+            align-items: center;
+        }
+        .retest-result {
+            background: #fff;
+            border-radius: 4px;
+            padding: 10px;
+            margin-top: 10px;
+            font-size: 13px;
+        }
+        .retest-result .result-judgment {
+            font-weight: bold;
+            margin-bottom: 4px;
+        }
+        .retest-result .result-judgment.related { color: #28a745; }
+        .retest-result .result-judgment.unrelated { color: #dc3545; }
+        .retest-result .thinking { color: #666; font-size: 12px; margin-top: 4px; }
+
+        /* AI 建议面板 */
+        .ai-suggestion {
+            background: #e8f5e9;
+            border: 1px solid #4caf50;
+            border-radius: 6px;
+            padding: 12px;
+            margin-top: 10px;
+        }
+        .ai-suggestion .suggested-text {
+            background: #fff;
+            padding: 8px;
+            border-radius: 4px;
+            font-size: 13px;
+            line-height: 1.5;
+            margin-bottom: 8px;
+        }
+        .ai-suggestion .reasoning {
+            font-size: 12px;
+            color: #666;
+            font-style: italic;
+            margin-bottom: 10px;
+        }
+        .ai-suggestion-actions {
+            display: flex;
+            gap: 8px;
+        }
+        .btn-adopt {
+            background: #4caf50;
+            color: white;
+            border: none;
+            padding: 5px 14px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        .btn-adopt:hover { background: #43a047; }
+        .btn-reject {
+            background: #9e9e9e;
+            color: white;
+            border: none;
+            padding: 5px 14px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        .btn-reject:hover { background: #757575; }
+
+        /* 批量验证面板 */
+        .batch-verify-panel {
+            background: #e3f2fd;
+            border: 1px solid #2196F3;
+            border-radius: 8px;
+            padding: 12px;
+            margin-top: 10px;
+        }
+        .batch-verify-panel textarea {
+            width: 100%;
+            min-height: 60px;
+            padding: 8px;
+            border: 1px solid #bbdefb;
+            border-radius: 4px;
+            font-size: 13px;
+            resize: vertical;
+            font-family: inherit;
+        }
+        .batch-verify-stats {
+            display: flex;
+            gap: 15px;
+            margin-top: 10px;
+            flex-wrap: wrap;
+        }
+        .batch-stat {
+            text-align: center;
+            padding: 8px 16px;
+            background: #fff;
+            border-radius: 6px;
+            min-width: 100px;
+        }
+        .batch-stat .num { font-size: 22px; font-weight: bold; }
+        .batch-stat.related-stat .num { color: #28a745; }
+        .batch-stat.unrelated-stat .num { color: #dc3545; }
+        .batch-stat-label { font-size: 11px; color: #999; margin-top: 2px; }
+        .batch-results-list {
+            margin-top: 10px;
+            max-height: 200px;
+            overflow-y: auto;
+            font-size: 12px;
+        }
+        .batch-result-item {
+            padding: 6px 8px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .batch-result-item:last-child { border-bottom: none; }
+        .btn-batch-verify {
+            background: #2196F3;
+            color: white;
+            border: none;
+            padding: 5px 14px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        .btn-batch-verify:hover { background: #1976D2; }
+        .btn-batch-verify:disabled { opacity: 0.6; cursor: not-allowed; }
+
+        /* 保存按钮区 */
+        .save-bar {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border-top: 1px solid #dee2e6;
+            padding: 12px 20px;
+            display: none;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .save-bar.active {
+            display: flex;
+        }
+        .save-bar .confirmed-count {
+            font-size: 14px;
+            color: #28a745;
+            font-weight: 500;
+        }
+        .btn-save {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+            border: none;
+            padding: 8px 20px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+        .btn-save:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 3px 10px rgba(40, 167, 69, 0.3);
+        }
+        .btn-save:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        footer {
+            text-align: center;
+            padding: 20px;
+            background: #f8f9fa;
+            color: #666;
+            font-size: 12px;
+            border-top: 1px solid #e0e0e0;
+        }
+
+        .selective-details summary {
+            cursor: pointer;
+            color: #333;
+            font-weight: 500;
+            font-size: 14px;
+        }
+        .selective-details input[type="text"] {
+            width: 100%;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🏷️ 新闻内容标签化系统</h1>
+            <p>基于三阶段流水线的智能标签提取（正则匹配 + 向量相似度 + LLM判定）</p>
+        </div>
+
+        <div class="main-content">
+            <div class="input-section">
+                <h2 class="section-title">📝 输入新闻内容</h2>
+
+                <div class="api-info">
+                    <strong>API地址：</strong> <code>/api/news/tag</code><br>
+                    <strong>方法：</strong> POST<br>
+                    <strong>说明：</strong> 自动提取新闻标签并判断相关性
+                </div>
+
+                <form id="tagForm">
+                    <div class="form-group">
+                        <label for="title">新闻标题 *</label>
+                        <input type="text" id="title" name="title" placeholder="请输入新闻标题" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="content">新闻正文 *</label>
+                        <textarea id="content" name="content" placeholder="请输入新闻正文内容..." required></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <details class="selective-details">
+                            <summary>📋 部分打标（可选）</summary>
+                            <div style="margin-top: 10px;">
+                                <label for="selectiveTags">指定标签名称（逗号分隔）</label>
+                                <input type="text" id="selectiveTags" placeholder="如：客户,港口,贸易" style="margin-top: 5px;">
+                                <div style="font-size: 11px; color: #888; margin-top: 4px;">只对这些标签做 LLM 判定，无需等待全量打标结果</div>
+                            </div>
+                        </details>
+                    </div>
+
+                    <div class="button-group">
+                        <button type="submit" class="btn" id="submitBtn">
+                            <span>🚀</span> 全量打标
+                        </button>
+                        <button type="button" class="btn" id="selectiveBtn" onclick="submitSelectiveTagging()" style="background: #fd7e14;">
+                            <span>🎯</span> 部分打标
+                        </button>
+                        <button type="button" class="btn btn-secondary" onclick="clearForm()">
+                            <span>🗑️</span> 清空
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <div class="output-section">
+                <h2 class="section-title">📊 标签结果</h2>
+
+                <div id="status" class="status"></div>
+
+                <div id="stats" class="stats" style="display: none;">
+                    <div class="stat-card">
+                        <div class="stat-value" id="totalTags">0</div>
+                        <div class="stat-label">总标签数</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="relatedTags">0</div>
+                        <div class="stat-label">相关标签</div>
+                    </div>
+                </div>
+
+                <div id="progressOverlay" class="progress-overlay">
+                    <div class="progress-stage-text" id="progressStageText">正在处理...</div>
+                    <div class="step-indicators">
+                        <div class="step-item" id="step1">
+                            <div class="step-circle">1</div>
+                            <div class="step-label">正则匹配</div>
+                        </div>
+                        <div class="step-item" id="step2">
+                            <div class="step-circle">2</div>
+                            <div class="step-label">向量相似度</div>
+                        </div>
+                        <div class="step-item" id="step3">
+                            <div class="step-circle">3</div>
+                            <div class="step-label">LLM判定</div>
+                        </div>
+                    </div>
+                </div>
+                <div id="saveBar" class="save-bar">
+                    <span class="confirmed-count" id="confirmedCount">已确认 0 个标签</span>
+                    <button class="btn-save" id="saveDefinitionsBtn" onclick="saveAllConfirmedDefinitions()">💾 保存所有已确认定义</button>
+                </div>
+                <div id="results" class="results-container">
+                    <div class="empty-state">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                        </svg>
+                        <p>暂无标签结果</p>
+                        <p style="font-size: 13px; margin-top: 10px;">在左侧输入新闻标题和内容，点击"全量打标"或"部分打标"按钮</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <footer>
+            <p>MICA 标签系统前端 | 生产环境：<span id="apiUrl">http://localhost:9092</span></p>
+        </footer>
+    </div>
+
+    <script>
+        // 配置 API 地址
+        const API_BASE_URL = 'http://localhost:9092';
+
+        // DOM 元素
+        const form = document.getElementById('tagForm');
+        const submitBtn = document.getElementById('submitBtn');
+        const statusDiv = document.getElementById('status');
+        const resultsDiv = document.getElementById('results');
+        const statsDiv = document.getElementById('stats');
+        const saveBar = document.getElementById('saveBar');
+        const confirmedCountSpan = document.getElementById('confirmedCount');
+        const progressOverlay = document.getElementById('progressOverlay');
+        const progressStageText = document.getElementById('progressStageText');
+        const apiUrlSpan = document.getElementById('apiUrl');
+
+        // 重测状态管理
+        let currentTags = [];  // 当前全量打标结果
+        const retestState = {};  // {tagIndex: {confirmed, modifiedDefinition, confirmedDefinition, lastRetestResult, isRetesting}}
+
+        // 进度控制
+        const stages = ['正则匹配', '向量相似度', 'LLM判定'];
+        let progressTimer = null;
+
+        function showProgress() {
+            // 清空结果区，显示进度
+            resultsDiv.style.display = 'none';
+            statsDiv.style.display = 'none';
+            statusDiv.style.display = 'none';
+            progressOverlay.classList.add('active');
+        }
+
+        function hideProgress() {
+            progressOverlay.classList.remove('active');
+            resultsDiv.style.display = '';
+            statusDiv.style.display = '';
+        }
+
+        function setProgressStep(step) {
+            for (let i = 1; i <= 3; i++) {
+                const el = document.getElementById(`step${i}`);
+                el.className = 'step-item';
+                if (i < step) el.className = 'step-item done';
+                if (i === step) el.className = 'step-item active';
+            }
+            progressStageText.textContent = `正在处理：${stages[step - 1]}...`;
+        }
+
+        function animateProgress() {
+            setProgressStep(1);
+            progressTimer = setTimeout(() => setProgressStep(2), 3000);
+            setTimeout(() => setProgressStep(3), 8000);
+        }
+
+        function resetProgress() {
+            if (progressTimer) { clearTimeout(progressTimer); progressTimer = null; }
+            for (let i = 1; i <= 3; i++) {
+                document.getElementById(`step${i}`).className = 'step-item';
+            }
+        }
+
+        // 显示状态消息
+        function showStatus(message, type) {
+            statusDiv.textContent = message;
+            statusDiv.className = `status ${type}`;
+        }
+
+        // 清空状态
+        function clearStatus() {
+            statusDiv.className = 'status';
+        }
+
+        // 清空表单
+        function clearForm() {
+            document.getElementById('title').value = '';
+            document.getElementById('content').value = '';
+            resultsDiv.innerHTML = `
+                <div class="empty-state">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                    </svg>
+                    <p>暂无标签结果</p>
+                    <p style="font-size: 13px; margin-top: 10px;">在左侧输入新闻标题和内容，点击"全量打标"或"部分打标"按钮</p>
+                </div>
+            `;
+            statsDiv.style.display = 'none';
+            clearStatus();
+        }
+
+        // 渲染标签结果（仅展示相关标签，没有related时按置信度判断）
+        function renderResults(data) {
+            currentTags = data || [];
+            // 重置重测状态
+            Object.keys(retestState).forEach(k => delete retestState[k]);
+            updateSaveBar();
+
+            const relatedTags = currentTags.filter(tag => {
+                if ('related' in tag) return tag.related;
+                return (tag.confidence || 0) >= 0.5;
+            });
+            if (relatedTags.length === 0) {
+                document.getElementById('totalTags').textContent = 0;
+                document.getElementById('relatedTags').textContent = 0;
+                statsDiv.style.display = 'flex';
+                resultsDiv.innerHTML = `
+                    <div class="empty-state">
+                        <p>未提取到相关标签</p>
+                    </div>
+                `;
+                return;
+            }
+
+            document.getElementById('totalTags').textContent = relatedTags.length;
+            document.getElementById('relatedTags').textContent = relatedTags.length;
+            statsDiv.style.display = 'flex';
+
+            // 渲染标签
+            resultsDiv.innerHTML = relatedTags.map((tag, idx) => {
+                const confidencePercent = Math.round(tag.confidence * 100);
+                const tagType = tag.tag_type || 'unknown';
+                const tagMatcher = tag.tag_matcher || 'unknown';
+                const tagDesc = tag.tag_desc_zh || tag.tag_definition || '';
+                const tagIndex = findOriginalIndex(tag.tag_name);
+
+                return `
+                    <div class="tag-item" id="tagCard${tagIndex}" ${retestState[tagIndex]?.confirmed ? 'style="border-left-color: #28a745"' : ''}>
+                        <div class="tag-header">
+                            <span class="tag-name">${escapeHtml(tag.tag_name)}</span>
+                            <span class="tag-type">${escapeHtml(tagType)}</span>
+                        </div>
+                        <div class="tag-source">匹配方式：${escapeHtml(tagMatcher)}</div>
+                        <div class="confidence-bar">
+                            <div class="confidence-fill" style="width: ${confidencePercent}%"></div>
+                        </div>
+                        <div style="font-size: 12px; color: #28a745;">
+                            置信度：${confidencePercent}%
+                        </div>
+                        ${tag.thinking_process ? `
+                            <div class="tag-thinking">
+                                <strong>推理过程：</strong>
+                                ${highlightThinkingProcess(tag.thinking_process, tagDesc)}
+                            </div>
+                        ` : ''}
+                        ${tagDesc ? `
+                            <details class="tag-definition">
+                                <summary>📋 标签定义</summary>
+                                <div class="desc-text">${escapeHtml(tagDesc)}</div>
+                            </details>
+                        ` : ''}
+                        <div class="tag-actions">
+                            <button class="btn-sm btn-history" onclick="openHistoryPanel(${tagIndex})">📋 版本历史</button>
+                            <button class="btn-sm btn-retest" onclick="openRetestPanel(${tagIndex})">✏️ 修改定义并重测</button>
+                            <button class="btn-sm btn-batch-verify" onclick="openBatchVerifyPanel(${tagIndex})">🔍 批量验证</button>
+                            <button class="btn-sm" style="background:#4caf50" onclick="openAiSuggestionPanel(${tagIndex})">🤖 AI建议</button>
+                            <button class="btn-sm btn-confirm" id="confirmBtn${tagIndex}" onclick="confirmDefinition(${tagIndex})">✅ 确认定义</button>
+                        </div>
+                        <div id="retestPanel${tagIndex}" style="display:none"></div>
+                    </div>
+                `;
+            }).join('');
+
+            // 恢复已确认状态
+            Object.keys(retestState).forEach(k => {
+                const idx = parseInt(k);
+                if (retestState[idx]?.confirmed) {
+                    const card = document.getElementById(`tagCard${idx}`);
+                    if (card) {
+                        card.classList.add('confirmed');
+                        card.style.borderLeftColor = '#28a745';
+                        const btn = document.getElementById(`confirmBtn${idx}`);
+                        if (btn) {
+                            btn.textContent = '✓ 已确认';
+                            btn.disabled = true;
+                        }
+                    }
+                }
+            });
+        }
+
+        function findOriginalIndex(tagName) {
+            for (let i = 0; i < currentTags.length; i++) {
+                if (currentTags[i].tag_name === tagName) return i;
+            }
+            return -1;
+        }
+
+        function openRetestPanel(tagIndex) {
+            const panel = document.getElementById(`retestPanel${tagIndex}`);
+            if (!panel || tagIndex < 0) return;
+            if (panel.style.display === 'block') {
+                panel.style.display = 'none';
+                return;
+            }
+            const tag = currentTags[tagIndex];
+            const currentDesc = retestState[tagIndex]?.modifiedDefinition || tag.tag_desc_zh || tag.tag_definition || '';
+            panel.style.display = 'block';
+            panel.innerHTML = `
+                <div class="retest-panel">
+                    <div style="font-size: 14px; font-weight: 500; margin-bottom: 8px;">✍️ 修改标签定义</div>
+                    <textarea id="retestTextarea${tagIndex}" placeholder="输入修改后的标签定义...">${escapeHtml(currentDesc)}</textarea>
+                    <div class="retest-actions">
+                        <button class="btn-sm btn-retest" onclick="retestWithNewDefinition(${tagIndex})">🔄 用新定义重测</button>
+                        <button class="btn-sm" onclick="document.getElementById('retestPanel${tagIndex}').style.display='none'">取消</button>
+                        <span id="retestLoading${tagIndex}" style="display:none;color:#fd7e14;font-size:12px;">重测中...</span>
+                    </div>
+                    <div id="retestResult${tagIndex}"></div>
+                </div>
+            `;
+        }
+
+        async function retestWithNewDefinition(tagIndex) {
+            if (tagIndex < 0) return;
+            const tag = currentTags[tagIndex];
+            const newDesc = document.getElementById(`retestTextarea${tagIndex}`).value.trim();
+            if (!newDesc) {
+                alert('请输入修改后的标签定义');
+                return;
+            }
+
+            // 保存修改后的定义
+            if (!retestState[tagIndex]) retestState[tagIndex] = {};
+            retestState[tagIndex].modifiedDefinition = newDesc;
+            retestState[tagIndex].isRetesting = true;
+
+            const loadingEl = document.getElementById(`retestLoading${tagIndex}`);
+            const resultEl = document.getElementById(`retestResult${tagIndex}`);
+            if (loadingEl) loadingEl.style.display = 'inline';
+            if (resultEl) resultEl.innerHTML = '';
+
+            try {
+                const title = document.getElementById('title').value.trim();
+                const content = document.getElementById('content').value.trim();
+
+                const response = await fetch(`${API_BASE_URL}/api/news/tag/single`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        title: title,
+                        content: content,
+                        tag_name: tag.tag_name,
+                        tag_desc_zh: newDesc
+                    })
+                });
+
+                if (!response.ok) {
+                    const errData = await response.json().catch(() => ({}));
+                    throw new Error(errData.detail || `HTTP ${response.status}`);
+                }
+
+                const result = await response.json();
+                const tagResult = result.data || {};
+                retestState[tagIndex].lastRetestResult = tagResult;
+                retestState[tagIndex].isRetesting = false;
+
+                const related = tagResult.related || false;
+                const conf = Math.round((tagResult.confidence || 0) * 100);
+
+                if (resultEl) {
+                    resultEl.innerHTML = `
+                        <div class="retest-result">
+                            <div class="result-judgment ${related ? 'related' : 'unrelated'}">
+                                ${related ? '✅ 与新闻相关' : '❌ 与新闻不相关'}（置信度：${conf}%）
+                            </div>
+                            ${tagResult.thinking_process ? `
+                                <div class="thinking">
+                                    <strong>推理过程：</strong>${escapeHtml(tagResult.thinking_process)}
+                                </div>
+                            ` : ''}
+                        </div>
+                    `;
+                }
+
+            } catch (error) {
+                console.error('Retest error:', error);
+                if (resultEl) {
+                    resultEl.innerHTML = `<div class="retest-result"><div class="result-judgment unrelated">重测失败：${escapeHtml(error.message)}</div></div>`;
+                }
+            }
+
+            if (loadingEl) loadingEl.style.display = 'none';
+        }
+
+        function confirmDefinition(tagIndex) {
+            if (tagIndex < 0) return;
+            if (!retestState[tagIndex]) retestState[tagIndex] = {};
+
+            retestState[tagIndex].confirmed = true;
+            // 保存确认的标签定义
+            retestState[tagIndex].confirmedDefinition = retestState[tagIndex].modifiedDefinition
+                || currentTags[tagIndex].tag_desc_zh
+                || currentTags[tagIndex].tag_definition
+                || '';
+
+            // 同时保存到版本历史
+            if (currentTags[tagIndex]) {
+                saveVersion(currentTags[tagIndex].tag_name, retestState[tagIndex].confirmedDefinition, '确认定义');
+            }
+
+            const card = document.getElementById(`tagCard${tagIndex}`);
+            if (card) {
+                card.classList.add('confirmed');
+                card.style.borderLeftColor = '#28a745';
+            }
+
+            const btn = document.getElementById(`confirmBtn${tagIndex}`);
+            if (btn) {
+                btn.textContent = '✓ 已确认';
+                btn.disabled = true;
+            }
+
+            // 更新定义显示
+            const defEl = card?.querySelector('.tag-definition .desc-text');
+            if (defEl && retestState[tagIndex].confirmedDefinition) {
+                defEl.textContent = retestState[tagIndex].confirmedDefinition;
+            }
+
+            updateSaveBar();
+            showStatus('已确认该标签定义', 'success');
+            setTimeout(() => clearStatus(), 2000);
+        }
+
+        // ===== 版本历史管理 (LocalStorage) =====
+        function getVersionHistory(tagName) {
+            try {
+                const data = localStorage.getItem('tag_definition_history');
+                return data ? (JSON.parse(data)[tagName] || []) : [];
+            } catch { return []; }
+        }
+
+        function saveVersion(tagName, definition, source = '修改定义') {
+            try {
+                const all = localStorage.getItem('tag_definition_history');
+                const history = all ? JSON.parse(all) : {};
+                if (!history[tagName]) history[tagName] = [];
+                history[tagName].push({
+                    version: history[tagName].length + 1,
+                    definition: definition,
+                    modified_at: new Date().toISOString(),
+                    source: source
+                });
+                localStorage.setItem('tag_definition_history', JSON.stringify(history));
+            } catch (e) {
+                console.error('Failed to save version:', e);
+            }
+        }
+
+        function rollbackVersion(tagName, versionIndex) {
+            try {
+                const data = localStorage.getItem('tag_definition_history');
+                if (!data) return null;
+                const history = JSON.parse(data)[tagName];
+                if (!history || versionIndex < 0 || versionIndex >= history.length) return null;
+                return history[versionIndex].definition;
+            } catch { return null; }
+        }
+
+        function generateDiff(oldText, newText) {
+            // Simple character-level diff: show removed and added sections
+            const oldChars = oldText.split('');
+            const newChars = newText.split('');
+            // Simple approach: show old and new side by side
+            return { old: oldText, new: newText };
+        }
+
+        function openHistoryPanel(tagIndex) {
+            if (tagIndex < 0) return;
+            const tag = currentTags[tagIndex];
+            if (!tag) return;
+
+            const panel = document.getElementById(`retestPanel${tagIndex}`);
+            if (!panel) return;
+
+            // Open panel if closed, close if open
+            if (panel.style.display === 'block' && panel.querySelector('.version-history-panel')) {
+                panel.style.display = 'none';
+                return;
+            }
+            panel.style.display = 'block';
+
+            const history = getVersionHistory(tag.tag_name);
+            const currentDef = tag.tag_desc_zh || tag.tag_definition || '';
+
+            let historyHtml = '';
+            if (history.length === 0) {
+                historyHtml = '<div style="color: #999; font-size: 13px; text-align: center; padding: 20px;">暂无版本历史</div>';
+            } else {
+                historyHtml = history.map((h, i) => {
+                    const time = new Date(h.modified_at).toLocaleString('zh-CN');
+                    const isLast = i === history.length - 1;
+                    const prev = i > 0 ? history[i - 1].definition : currentDef;
+                    const diff = generateDiff(prev, h.definition);
+
+                    return `
+                        <div class="version-entry">
+                            <div class="version-header">
+                                <span class="version-time">v${h.version} - ${time} (${h.source || '修改'})</span>
+                                <button class="btn-rollback" onclick="doRollback(${tagIndex}, ${i})">回滚至此版本</button>
+                            </div>
+                            <div class="version-diff">
+                                <div style="margin-bottom: 4px; font-weight: 500;">删除内容：</div>
+                                <span class="diff-removed">${escapeHtml(diff.old)}</span>
+                                <div style="margin-top: 8px; margin-bottom: 4px; font-weight: 500;">新增内容：</div>
+                                <span class="diff-added">${escapeHtml(diff.new)}</span>
+                            </div>
+                        </div>
+                    `;
+                }).reverse().join('');
+            }
+
+            panel.innerHTML = `
+                <div class="retest-panel">
+                    <div style="font-size: 14px; font-weight: 500; margin-bottom: 10px;">📋 标签「${escapeHtml(tag.tag_name)}」版本历史</div>
+                    <div class="version-history-panel">${historyHtml}</div>
+                    <div style="margin-top: 10px;">
+                        <button class="btn-sm" onclick="document.getElementById('retestPanel${tagIndex}').style.display='none'">关闭</button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function doRollback(tagIndex, versionIndex) {
+            const tag = currentTags[tagIndex];
+            if (!tag) return;
+            const rolledback = rollbackVersion(tag.tag_name, versionIndex);
+            if (!rolledback) return;
+
+            if (!retestState[tagIndex]) retestState[tagIndex] = {};
+            retestState[tagIndex].modifiedDefinition = rolledback;
+
+            // 保存回滚操作到历史
+            saveVersion(tag.tag_name, rolledback, '回滚版本');
+
+            // 更新 textarea 如果有
+            const textarea = document.getElementById(`retestTextarea${tagIndex}`);
+            if (textarea) textarea.value = rolledback;
+
+            // 更新定义显示
+            const descEl = document.querySelector(`#tagCard${tagIndex} .tag-definition .desc-text`);
+            if (descEl) descEl.textContent = rolledback;
+
+            // 重新打开历史面板展示新版本
+            openHistoryPanel(tagIndex);
+
+            showStatus(`已回滚至历史版本 v${versionIndex + 1}`, 'success');
+            setTimeout(() => clearStatus(), 2000);
+        }
+
+        // ===== 高亮推理过程中的关键词 - 从标签定义中提取关键词并高亮
+        function highlightThinkingProcess(thinkingProcess, tagDefinition) {
+            if (!thinkingProcess || !tagDefinition) {
+                return escapeHtml(thinkingProcess || '');
+            }
+
+            // 提取标签定义中的关键词（长度 >= 2 的连续中文字或英文词）
+            const keywords = [];
+            // 匹配 2+ 中文字符
+            const cnMatches = tagDefinition.match(/[\u4e00-\u9fa5]{2,}/g) || [];
+            keywords.push(...cnMatches);
+
+            // 去重并过滤过短的词
+            const uniqueKeywords = [...new Set(keywords)].filter(k => k.length >= 2);
+
+            // 按长度降序排列，防止短词误匹配长词的一部分
+            uniqueKeywords.sort((a, b) => b.length - a.length);
+
+            let html = escapeHtml(thinkingProcess);
+            uniqueKeywords.forEach(keyword => {
+                const escapedKeyword = escapeHtml(keyword);
+                const regex = new RegExp(`(${escapeRegExp(keyword)})`, 'gi');
+                html = html.replace(regex,
+                    `<span class="highlight-keyword" data-original="${escapedKeyword}">$1` +
+                    `<span class="highlight-tooltip">命中标签定义：${escapedKeyword}</span>` +
+                    `</span>`);
+            });
+
+            return html;
+        }
+
+        function escapeRegExp(str) {
+            return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        }
+
+        // HTML attribute escaping for inline event handlers
+        function escapeForAttr(str) {
+            return str.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;').replace(/\n/g, '\\n').replace(/\r/g, '');
+        }
+
+        function updateSaveBar() {
+            const confirmedCount = Object.keys(retestState).filter(k => retestState[k]?.confirmed).length;
+            if (confirmedCount === 0) {
+                saveBar.classList.remove('active');
+            } else {
+                saveBar.classList.add('active');
+                confirmedCountSpan.textContent = `已确认 ${confirmedCount} 个标签定义`;
+            }
+        }
+
+        async function saveAllConfirmedDefinitions() {
+            const confirmedEntries = [];
+            Object.keys(retestState).forEach(k => {
+                const idx = parseInt(k);
+                if (retestState[idx]?.confirmed && retestState[idx].confirmedDefinition) {
+                    const tag = currentTags[idx];
+                    confirmedEntries.push({
+                        tag_name: tag.tag_name,
+                        tag_desc_zh: retestState[idx].confirmedDefinition
+                    });
+                }
+            });
+
+            if (confirmedEntries.length === 0) {
+                showStatus('没有已确认的标签定义', 'error');
+                return;
+            }
+
+            const saveBtn = document.getElementById('saveDefinitionsBtn');
+            saveBtn.disabled = true;
+            saveBtn.textContent = '保存中...';
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/news/tags/definition`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(confirmedEntries)
+                });
+
+                if (!response.ok) {
+                    const errData = await response.json().catch(() => ({}));
+                    throw new Error(errData.detail || `HTTP ${response.status}`);
+                }
+
+                const result = await response.json();
+                if (result.data && result.data.success) {
+                    showStatus(`成功保存 ${result.data.updated || confirmedEntries.length} 个标签定义！`, 'success');
+                    setTimeout(() => clearStatus(), 4000);
+                } else {
+                    throw new Error(result.msg || '保存失败');
+                }
+
+            } catch (error) {
+                showStatus(`保存失败：${error.message}`, 'error');
+            } finally {
+                saveBtn.disabled = false;
+                saveBtn.textContent = '💾 保存所有已确认定义';
+            }
+        }
+
+        // HTML 转义
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // 表单提交
+        async function submitTagging(event) {
+            event.preventDefault();
+
+            const title = document.getElementById('title').value.trim();
+            const content = document.getElementById('content').value.trim();
+
+            if (!title || !content) {
+                showStatus('请填写完整的新闻标题和内容', 'error');
+                return;
+            }
+
+            submitBtn.disabled = true;
+            showProgress();
+            animateProgress();
+
+            // 设置超时控制（120秒，给LLM足够时间）
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 600000);
+
+            try {
+                console.log('发送请求到:', `${API_BASE_URL}/api/news/tag`);
+                console.log('请求体:', { title, content });
+
+                const response = await fetch(`${API_BASE_URL}/api/news/tag`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ title, content }),
+                    signal: controller.signal
+                });
+
+                clearTimeout(timeoutId);
+
+                console.log('响应状态:', response.status, response.statusText);
+                console.log('Content-Type:', response.headers.get('Content-Type'));
+
+                // 检查响应类型
+                const contentType = response.headers.get('Content-Type') || '';
+                if (!contentType.includes('application/json')) {
+                    const text = await response.text();
+                    console.error('非JSON响应:', text.substring(0, 500));
+                    throw new Error(`服务器返回了非JSON响应 (Content-Type: ${contentType})`);
+                }
+
+                const result = await response.json();
+                console.log('响应数据:', result);
+
+                if (result.code === 200 || response.status === 200) {
+                    resetProgress();
+                    hideProgress();
+                    const data = result.data || result.results;
+                    console.log('处理结果:', data);
+                    renderResults(data);
+                    showStatus('标签提取完成！', 'success');
+                    setTimeout(() => clearStatus(), 3000);
+                } else {
+                    throw new Error(result.msg || '返回数据格式错误');
+                }
+
+            } catch (error) {
+                clearTimeout(timeoutId);
+                console.error('Error:', error);
+
+                resetProgress();
+                hideProgress();
+
+                if (error.name === 'AbortError') {
+                    showStatus('请求超时：后端处理时间较长，请稍后重试或联系管理员', 'error');
+                } else {
+                    showStatus(`请求失败：${error.message}`, 'error');
+                }
+            } finally {
+                submitBtn.disabled = false;
+            }
+        }
+
+        // 部分打标
+        async function submitSelectiveTagging() {
+            const title = document.getElementById('title').value.trim();
+            const content = document.getElementById('content').value.trim();
+            const tagsInput = document.getElementById('selectiveTags').value.trim();
+
+            if (!title || !content) {
+                showStatus('请填写完整的新闻标题和内容', 'error');
+                return;
+            }
+            if (!tagsInput) {
+                showStatus('请输入至少一个标签名称（逗号分隔）', 'error');
+                return;
+            }
+
+            const tagNames = tagsInput.split(/[,，]/).map(t => t.trim()).filter(t => t);
+            if (tagNames.length === 0) {
+                showStatus('无效的标签名称', 'error');
+                return;
+            }
+
+            submitBtn.disabled = true;
+            document.getElementById('selectiveBtn').disabled = true;
+            showStatus(`正在对 ${tagNames.length} 个标签进行重测...`, 'loading');
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/news/tag/selective`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ title, content, tag_names: tagNames })
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(errorData.detail || `HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const result = await response.json();
+
+                if (result.code === 200 || response.status === 200) {
+                    renderSelectiveResults(result.data || []);
+                    showStatus(`部分打标完成，共检测 ${tagNames.length} 个标签`, 'success');
+                    setTimeout(() => clearStatus(), 3000);
+                } else {
+                    throw new Error(result.msg || '返回数据格式错误');
+                }
+
+            } catch (error) {
+                console.error('Selective tagging error:', error);
+                showStatus(`请求失败：${error.message}`, 'error');
+            } finally {
+                submitBtn.disabled = false;
+                document.getElementById('selectiveBtn').disabled = false;
+            }
+        }
+
+        // 渲染部分打标结果（显示全部指定标签，包括不相关的）
+        function renderSelectiveResults(data) {
+            currentTags = data || [];
+            Object.keys(retestState).forEach(k => delete retestState[k]);
+            updateSaveBar();
+
+            document.getElementById('totalTags').textContent = data.length;
+            const relatedCount = data.filter(t => t.related);
+            document.getElementById('relatedTags').textContent = relatedCount.length;
+            statsDiv.style.display = 'flex';
+
+            if (data.length === 0) {
+                resultsDiv.innerHTML = `<div class="empty-state"><p>未匹配到指定的标签</p></div>`;
+                return;
+            }
+
+            resultsDiv.innerHTML = data.map((tag, idx) => {
+                const confidencePercent = Math.round(tag.confidence * 100);
+                const tagType = tag.tag_type || 'unknown';
+                const tagMatcher = tag.tag_matcher || 'unknown';
+                const tagDesc = tag.tag_desc_zh || tag.tag_definition || '';
+                const tagIndex = findOriginalIndex(tag.tag_name);
+                const borderColor = tag.related ? '#28a745' : '#dc3545';
+
+                return `
+                    <div class="tag-item" id="tagCard${tagIndex}" style="border-left-color: ${borderColor}">
+                        <div class="tag-header">
+                            <span class="tag-name">${escapeHtml(tag.tag_name)}</span>
+                            <span class="tag-type">${escapeHtml(tagType)}</span>
+                        </div>
+                        <div class="tag-source">匹配方式：${escapeHtml(tagMatcher)}</div>
+                        <div class="confidence-bar">
+                            <div class="confidence-fill" style="width: ${confidencePercent}%; background: ${tag.related ? 'linear-gradient(90deg, #667eea, #764ba2)' : 'linear-gradient(90deg, #dc3545, #e83e8c)'}"></div>
+                        </div>
+                        <div style="font-size: 12px; color: ${tag.related ? '#28a745' : '#dc3545'};">
+                            置信度：${confidencePercent}% ${tag.related ? '（相关）' : '（不相关）'}
+                        </div>
+                        ${tag.thinking_process ? `
+                            <div class="tag-thinking">
+                                <strong>推理过程：</strong>${escapeHtml(tag.thinking_process)}
+                            </div>
+                        ` : ''}
+                        ${tagDesc ? `
+                            <details class="tag-definition">
+                                <summary>📋 标签定义</summary>
+                                <div class="desc-text">${escapeHtml(tagDesc)}</div>
+                            </details>
+                        ` : ''}
+                        <div class="tag-actions">
+                            <button class="btn-sm btn-history" onclick="openHistoryPanel(${tagIndex})">📋 版本历史</button>
+                            <button class="btn-sm btn-retest" onclick="openRetestPanel(${tagIndex})">✏️ 修改定义并重测</button>
+                            <button class="btn-sm btn-batch-verify" onclick="openBatchVerifyPanel(${tagIndex})">🔍 批量验证</button>
+                            <button class="btn-sm" style="background:#4caf50" onclick="openAiSuggestionPanel(${tagIndex})">🤖 AI建议</button>
+                            <button class="btn-sm btn-confirm" id="confirmBtn${tagIndex}" onclick="confirmDefinition(${tagIndex})">✅ 确认定义</button>
+                        </div>
+                        <div id="retestPanel${tagIndex}" style="display:none"></div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // ===== US-003: AI 定义建议 =====
+        async function openAiSuggestionPanel(tagIndex) {
+            if (tagIndex < 0) return;
+            const tag = currentTags[tagIndex];
+            if (!tag) return;
+            const panel = document.getElementById(`retestPanel${tagIndex}`);
+            if (!panel) return;
+            if (panel.style.display === 'block' && panel.querySelector('.ai-suggestion')) {
+                panel.style.display = 'none';
+                return;
+            }
+            panel.style.display = 'block';
+            panel.innerHTML = `
+                <div class="retest-panel">
+                    <div style="font-size:14px;font-weight:500;margin-bottom:8px;">🤖 AI 定义建议</div>
+                    <button class="btn-sm btn-retest" id="genAiSuggestBtn${tagIndex}" onclick="generateAiSuggestion(${tagIndex})">✨ 生成 AI 建议</button>
+                    <span id="aiSuggestLoading${tagIndex}" style="display:none;color:#fd7e14;font-size:12px;margin-left:8px;">AI 生成中...</span>
+                    <div id="aiSuggestionResult${tagIndex}"></div>
+                    <div style="margin-top:10px;">
+                        <button class="btn-sm" onclick="document.getElementById('retestPanel${tagIndex}').style.display='none'">关闭</button>
+                    </div>
+                </div>
+            `;
+        }
+
+        async function generateAiSuggestion(tagIndex) {
+            if (tagIndex < 0) return;
+            const tag = currentTags[tagIndex];
+            const title = document.getElementById('title').value.trim();
+            const content = document.getElementById('content').value.trim();
+            const currentDesc = tag.tag_desc_zh || tag.tag_definition || '';
+
+            const btn = document.getElementById(`genAiSuggestBtn${tagIndex}`);
+            const loading = document.getElementById(`aiSuggestLoading${tagIndex}`);
+            const resultEl = document.getElementById(`aiSuggestionResult${tagIndex}`);
+            btn.disabled = true;
+            if (loading) loading.style.display = 'inline';
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/news/tag/suggest-definition`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        title: title,
+                        content: content,
+                        tag_names: [tag.tag_name]
+                    })
+                });
+                if (!response.ok) {
+                    const errData = await response.json().catch(() => ({}));
+                    throw new Error(errData.detail || `HTTP ${response.status}`);
+                }
+                const result = await response.json();
+                const data = result.data || {};
+                const suggestedDesc = data.suggested_desc_zh || '未生成建议';
+                const reasoning = data.reasoning || '';
+
+                if (resultEl) {
+                    resultEl.innerHTML = `
+                        <div class="ai-suggestion">
+                            <div style="font-weight:500;margin-bottom:6px;">📝 AI 优化建议：</div>
+                            <div class="suggested-text">${escapeHtml(suggestedDesc)}</div>
+                            ${reasoning ? `<div class="reasoning">💡 思路：${escapeHtml(reasoning)}</div>` : ''}
+                            <div class="ai-suggestion-actions">
+                                <button class="btn-adopt" onclick="adoptAiSuggestion(${tagIndex}, '${escapeForAttr(suggestedDesc)}')">✅ 采纳</button>
+                                <button class="btn-reject" onclick="document.getElementById('aiSuggestionResult${tagIndex}').innerHTML='<div style=color:#999>已拒绝该建议</div>'">❌ 拒绝</button>
+                            </div>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                console.error('AI suggestion error:', error);
+                if (resultEl) {
+                    resultEl.innerHTML = `<div class="retest-result"><div class="result-judgment unrelated">生成建议失败：${escapeHtml(error.message)}</div></div>`;
+                }
+            }
+            btn.disabled = false;
+            if (loading) loading.style.display = 'none';
+        }
+
+        function adoptAiSuggestion(tagIndex, suggestion) {
+            if (tagIndex < 0) return;
+            if (!retestState[tagIndex]) retestState[tagIndex] = {};
+            retestState[tagIndex].modifiedDefinition = suggestion;
+
+            // 保存到版本历史
+            if (currentTags[tagIndex]) {
+                saveVersion(currentTags[tagIndex].tag_name, suggestion, 'AI建议采纳');
+            }
+
+            // 更新定义显示
+            const card = document.getElementById(`tagCard${tagIndex}`);
+            const descEl = card?.querySelector('.tag-definition .desc-text');
+            if (descEl) descEl.textContent = suggestion;
+
+            const resultEl = document.getElementById(`aiSuggestionResult${tagIndex}`);
+            if (resultEl) resultEl.innerHTML = `<div style="color:#28a745;font-size:13px;padding:8px;">✅ 已采纳 AI 建议，定义已更新</div>`;
+
+            showStatus('已采纳 AI 建议', 'success');
+            setTimeout(() => clearStatus(), 2000);
+        }
+
+        // ===== US-004: 批量验证定义 =====
+        async function openBatchVerifyPanel(tagIndex) {
+            if (tagIndex < 0) return;
+            const tag = currentTags[tagIndex];
+            if (!tag) return;
+            const panel = document.getElementById(`retestPanel${tagIndex}`);
+            if (!panel) return;
+            if (panel.style.display === 'block' && panel.querySelector('.batch-verify-panel')) {
+                panel.style.display = 'none';
+                return;
+            }
+            panel.style.display = 'block';
+
+            // 从 LocalStorage 读取已保存的历史新闻
+            let storedNews = [];
+            try {
+                const raw = localStorage.getItem('tag_verification_news');
+                storedNews = raw ? JSON.parse(raw) : [];
+            } catch {}
+
+            const newsText = storedNews.map(n => `${n.title}|${n.content}`).join('\n');
+
+            panel.innerHTML = `
+                <div class="retest-panel">
+                    <div style="font-size:14px;font-weight:500;margin-bottom:8px;">🔍 批量验证标签「${escapeHtml(tag.tag_name)}」</div>
+                    <div style="font-size:12px;color:#666;margin-bottom:6px;">每条新闻格式：标题|正文内容（一行一条）</div>
+                    <textarea id="batchNewsTextarea${tagIndex}" placeholder="标题|正文内容&#10;标题2|正文内容2">${escapeHtml(newsText)}</textarea>
+                    <div style="display:flex;gap:8px;margin-top:10px;align-items:center;">
+                        <button class="btn-batch-verify" id="batchVerifyBtn${tagIndex}" onclick="runBatchVerify(${tagIndex})">🚀 开始批量验证</button>
+                        <span id="batchVerifyLoading${tagIndex}" style="display:none;color:#2196F3;font-size:12px;">验证中...</span>
+                        <button class="btn-sm" onclick="document.getElementById('retestPanel${tagIndex}').style.display='none'">关闭</button>
+                    </div>
+                    <div id="batchVerifyResult${tagIndex}"></div>
+                </div>
+            `;
+        }
+
+        async function runBatchVerify(tagIndex) {
+            if (tagIndex < 0) return;
+            const tag = currentTags[tagIndex];
+            const textarea = document.getElementById(`batchNewsTextarea${tagIndex}`);
+            const raw = textarea.value.trim();
+            if (!raw) {
+                alert('请输入至少一条新闻数据');
+                return;
+            }
+
+            // 先保存到 LocalStorage 方便下次使用
+            const newsList = raw.split('\n').filter(line => line.includes('|')).map(line => {
+                const parts = line.split('|');
+                return { title: parts[0].trim(), content: parts.slice(1).join('|').trim() };
+            }).filter(n => n.title && n.content);
+
+            if (newsList.length === 0) {
+                alert('请保证每行数据格式为：标题|正文');
+                return;
+            }
+
+            try {
+                localStorage.setItem('tag_verification_news', JSON.stringify(newsList));
+            } catch {}
+
+            const btn = document.getElementById(`batchVerifyBtn${tagIndex}`);
+            const loading = document.getElementById(`batchVerifyLoading${tagIndex}`);
+            const resultEl = document.getElementById(`batchVerifyResult${tagIndex}`);
+            btn.disabled = true;
+            if (loading) loading.style.display = 'inline';
+            if (resultEl) resultEl.innerHTML = '';
+
+            let relatedCount = 0;
+            let unrelatedCount = 0;
+            const details = [];
+
+            for (let i = 0; i < newsList.length; i++) {
+                const news = newsList[i];
+                try {
+                    const resp = await fetch(`${API_BASE_URL}/api/news/tag/single`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            title: news.title,
+                            content: news.content,
+                            tag_name: tag.tag_name
+                        })
+                    });
+                    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+                    const result = await resp.json();
+                    const tagResult = result.data || {};
+                    const isRelated = tagResult.related || false;
+                    if (isRelated) relatedCount++; else unrelatedCount++;
+                    details.push({
+                        newsTitle: news.title,
+                        related: isRelated,
+                        confidence: Math.round((tagResult.confidence || 0) * 100)
+                    });
+                } catch (err) {
+                    unrelatedCount++;
+                    details.push({
+                        newsTitle: news.title,
+                        related: false,
+                        confidence: 0,
+                        error: err.message
+                    });
+                }
+            }
+
+            const total = newsList.length;
+            const relatedPercent = total > 0 ? Math.round(relatedCount / total * 100) : 0;
+
+            if (resultEl) {
+                const detailsHtml = details.map(d => `
+                    <div class="batch-result-item">
+                        <span>${escapeHtml(d.newsTitle)}</span>
+                        <span style="font-weight:bold;color:${d.related ? '#28a745' : '#dc3545'}">
+                            ${d.related ? '✅ 相关' : '❌ 不相关'}
+                            ${d.confidence > 0 ? `(${d.confidence}%)` : d.error ? `(${escapeHtml(d.error)})` : ''}
+                        </span>
+                    </div>
+                `).join('');
+
+                resultEl.innerHTML = `
+                    <div class="batch-verify-stats">
+                        <div class="batch-stat related-stat">
+                            <div class="num">${relatedCount}</div>
+                            <div class="batch-stat-label">相关 (${relatedPercent}%)</div>
+                        </div>
+                        <div class="batch-stat unrelated-stat">
+                            <div class="num">${unrelatedCount}</div>
+                            <div class="batch-stat-label">不相关 (${100 - relatedPercent}%)</div>
+                        </div>
+                        <div class="batch-stat">
+                            <div class="num">${total}</div>
+                            <div class="batch-stat-label">总测试数</div>
+                        </div>
+                    </div>
+                    <div class="batch-results-list">${detailsHtml}</div>
+                    <div style="margin-top:10px;font-size:12px;color:#666;">
+                        建议使用当前定义重测（已包含最新定义）
+                    </div>
+                `;
+            }
+
+            btn.disabled = false;
+            if (loading) loading.style.display = 'none';
+        }
+
+        // 事件监听
+        form.addEventListener('submit', submitTagging);
+
+        // 页面加载时显示 API 地址
+        apiUrlSpan.textContent = API_BASE_URL;
+    </script>
+</body>
+</html>
