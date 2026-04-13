@@ -20,7 +20,7 @@
         }
 
         .container {
-            max-width: 1200px;
+            max-width: 1680px;
             margin: 0 auto;
             background: white;
             border-radius: 16px;
@@ -47,15 +47,83 @@
 
         .main-content {
             display: grid;
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: 280px 1fr 1fr;
             gap: 20px;
             padding: 20px;
+            align-items: start;
+        }
+
+        @media (max-width: 1100px) {
+            .main-content {
+                grid-template-columns: 1fr 1fr;
+            }
+            .news-source-panel {
+                grid-column: 1 / -1;
+            }
+            .news-source-list {
+                max-height: min(240px, 40vh);
+            }
         }
 
         @media (max-width: 768px) {
             .main-content {
                 grid-template-columns: 1fr;
             }
+        }
+
+        .news-source-panel {
+            padding: 20px;
+            border-right: 1px solid #e8e8e8;
+            min-width: 0;
+        }
+
+        .news-source-list {
+            max-height: calc(100vh - 240px);
+            min-height: 120px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            padding-right: 4px;
+        }
+
+        .news-source-item {
+            text-align: left;
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            background: #f8f9fa;
+            cursor: pointer;
+            font-size: 13px;
+            line-height: 1.45;
+            font-family: inherit;
+            color: #333;
+            transition: background 0.2s, border-color 0.2s;
+        }
+
+        .news-source-item:hover {
+            background: #e9ecef;
+            border-color: #667eea;
+        }
+
+        .news-source-item.active {
+            background: #e8ebff;
+            border-color: #667eea;
+            box-shadow: 0 0 0 1px rgba(102, 126, 234, 0.35);
+        }
+
+        .news-source-status {
+            font-size: 12px;
+            color: #b02a37;
+            margin-bottom: 10px;
+            line-height: 1.4;
+        }
+
+        .news-source-hint {
+            font-size: 11px;
+            color: #888;
+            margin-bottom: 8px;
         }
 
         .input-section, .output-section {
@@ -792,6 +860,12 @@
         </div>
 
         <div class="main-content">
+            <aside class="news-source-panel">
+                <h2 class="section-title">&#128240; 新闻源</h2>
+                <p class="news-source-hint">点击下方条目填入中间标题与正文（可上下滑动）</p>
+                <div id="newsSourceStatus" class="news-source-status"></div>
+                <div id="newsSourceList" class="news-source-list" role="list"></div>
+            </aside>
             <div class="input-section">
                 <h2 class="section-title">📝 输入新闻内容</h2>
 
@@ -880,7 +954,7 @@
                             <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
                         </svg>
                         <p>暂无标签结果</p>
-                        <p style="font-size: 13px; margin-top: 10px;">在左侧输入新闻标题和内容，点击"全量打标"或"部分打标"按钮</p>
+                        <p style="font-size: 13px; margin-top: 10px;">选择新闻源或输入标题与正文，点击「全量打标」或「部分打标」</p>
                     </div>
                 </div>
             </div>
@@ -891,6 +965,7 @@
         </footer>
     </div>
 
+    <script src="news-data.js"></script>
     <script>
         // 配置 API 地址
         const API_BASE_URL = 'http://172.22.216.8:9092';
@@ -910,6 +985,78 @@
         // 重测状态管理
         let currentTags = [];  // 当前全量打标结果
         const retestState = {};  // {tagIndex: {confirmed, modifiedDefinition, confirmedDefinition, lastRetestResult, isRetesting}}
+
+        const newsSourceListEl = document.getElementById('newsSourceList');
+        const newsSourceStatusEl = document.getElementById('newsSourceStatus');
+        let newsItems = [];
+        let selectedNewsIndex = -1;
+
+        function resetTagResultsToEmpty() {
+            currentTags = [];
+            Object.keys(retestState).forEach(k => delete retestState[k]);
+            updateSaveBar();
+            resultsDiv.innerHTML = `
+                <div class="empty-state">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                    </svg>
+                    <p>暂无标签结果</p>
+                    <p style="font-size: 13px; margin-top: 10px;">选择新闻源或输入标题与正文，点击「全量打标」或「部分打标」</p>
+                </div>
+            `;
+            statsDiv.style.display = 'none';
+            clearStatus();
+        }
+
+        function selectNewsItem(index) {
+            if (index < 0 || index >= newsItems.length) return;
+            selectedNewsIndex = index;
+            const item = newsItems[index];
+            document.getElementById('title').value = item.title || '';
+            document.getElementById('content').value = item.content || '';
+            newsSourceListEl.querySelectorAll('.news-source-item').forEach((el, i) => {
+                el.classList.toggle('active', i === index);
+            });
+            resetTagResultsToEmpty();
+        }
+
+        function renderNewsSourceList() {
+            if (!newsItems.length) {
+                newsSourceListEl.innerHTML = '<div style="font-size:13px;color:#999;padding:8px;">暂无数据</div>';
+                return;
+            }
+            newsSourceListEl.innerHTML = newsItems.map((item, i) => {
+                const t = (item.title || '').trim();
+                const preview = t.length > 72 ? t.slice(0, 72) + '…' : (t || '（无标题 #' + (i + 1) + '）');
+                return '<button type="button" class="news-source-item" data-index="' + i + '" role="listitem">' + escapeHtml(preview) + '</button>';
+            }).join('');
+        }
+
+        async function loadNewsFromJson() {
+            newsSourceStatusEl.textContent = '';
+            if (typeof window.NEWS_ITEMS !== 'undefined' && Array.isArray(window.NEWS_ITEMS) && window.NEWS_ITEMS.length > 0) {
+                newsItems = window.NEWS_ITEMS;
+                renderNewsSourceList();
+                return;
+            }
+            try {
+                const r = await fetch(new URL('news.json', window.location.href));
+                if (!r.ok) throw new Error('HTTP ' + r.status);
+                const data = await r.json();
+                if (!Array.isArray(data)) throw new Error('应为 JSON 数组');
+                newsItems = data;
+                renderNewsSourceList();
+            } catch (e) {
+                console.error(e);
+                newsSourceStatusEl.textContent = '未能加载新闻：请运行 python export_news_to_json.py 生成 news-data.js，或与 index.html 同目录用浏览器打开';
+            }
+        }
+
+        newsSourceListEl.addEventListener('click', (e) => {
+            const btn = e.target.closest('.news-source-item');
+            if (!btn) return;
+            selectNewsItem(parseInt(btn.getAttribute('data-index'), 10));
+        });
 
         // 进度控制
         const stages = ['正则匹配', '向量相似度', 'LLM判定'];
@@ -967,13 +1114,15 @@
         function clearForm() {
             document.getElementById('title').value = '';
             document.getElementById('content').value = '';
+            selectedNewsIndex = -1;
+            newsSourceListEl.querySelectorAll('.news-source-item').forEach(el => el.classList.remove('active'));
             resultsDiv.innerHTML = `
                 <div class="empty-state">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
                     </svg>
                     <p>暂无标签结果</p>
-                    <p style="font-size: 13px; margin-top: 10px;">在左侧输入新闻标题和内容，点击"全量打标"或"部分打标"按钮</p>
+                    <p style="font-size: 13px; margin-top: 10px;">选择新闻源或输入标题与正文，点击「全量打标」或「部分打标」</p>
                 </div>
             `;
             statsDiv.style.display = 'none';
@@ -1019,7 +1168,7 @@
                     <div class="tag-item" id="tagCard${tagIndex}" ${retestState[tagIndex]?.confirmed ? 'style="border-left-color: #28a745"' : ''}>
                         <div class="tag-header">
                             <span class="tag-name">${escapeHtml(tag.tag_name)}</span>
-                            <span class="tag-type">${escapeHtml(tagType)}</span>
+                            <!-- <span class="tag-type">${escapeHtml(tagType)}</span> -->
                         </div>
                         <div class="tag-source">匹配方式：${escapeHtml(tagMatcher)}</div>
                         <div class="confidence-bar">
@@ -1041,10 +1190,10 @@
                             </details>
                         ` : ''}
                         <div class="tag-actions">
-                            <button class="btn-sm btn-history" onclick="openHistoryPanel(${tagIndex})">📋 版本历史</button>
+                            <!-- <button class="btn-sm btn-history" onclick="openHistoryPanel(${tagIndex})">📋 版本历史</button> -->
                             <button class="btn-sm btn-retest" onclick="openRetestPanel(${tagIndex})">✏️ 修改定义并重测</button>
-                            <button class="btn-sm btn-batch-verify" onclick="openBatchVerifyPanel(${tagIndex})">🔍 批量验证</button>
-                            <button class="btn-sm" style="background:#4caf50" onclick="openAiSuggestionPanel(${tagIndex})">🤖 AI建议</button>
+                            <!-- <button class="btn-sm btn-batch-verify" onclick="openBatchVerifyPanel(${tagIndex})">🔍 批量验证</button> -->
+                            <!-- <button class="btn-sm" style="background:#4caf50" onclick="openAiSuggestionPanel(${tagIndex})">🤖 AI建议</button> -->
                             <button class="btn-sm btn-confirm" id="confirmBtn${tagIndex}" onclick="confirmDefinition(${tagIndex})">✅ 确认定义</button>
                         </div>
                         <div id="retestPanel${tagIndex}" style="display:none"></div>
@@ -1077,6 +1226,34 @@
             return -1;
         }
 
+        /**
+         * 已确认后若定义文本与上次确认的文本不一致，则恢复为可再次确认的状态。
+         */
+        function unconfirmDefinitionIfTextDrifted(tagIndex, candidateText) {
+            const st = retestState[tagIndex];
+            if (!st || !st.confirmed) return;
+            const a = String(candidateText ?? '').trim();
+            const b = String(st.confirmedDefinition ?? '').trim();
+            if (a === b) return;
+            st.confirmed = false;
+            const card = document.getElementById(`tagCard${tagIndex}`);
+            if (card) {
+                card.classList.remove('confirmed');
+                const tag = currentTags[tagIndex];
+                if (tag && 'related' in tag) {
+                    card.style.borderLeftColor = tag.related ? '#28a745' : '#dc3545';
+                } else {
+                    card.style.removeProperty('border-left-color');
+                }
+            }
+            const btn = document.getElementById(`confirmBtn${tagIndex}`);
+            if (btn) {
+                btn.textContent = '✅ 确认定义';
+                btn.disabled = false;
+            }
+            updateSaveBar();
+        }
+
         function openRetestPanel(tagIndex) {
             const panel = document.getElementById(`retestPanel${tagIndex}`);
             if (!panel || tagIndex < 0) return;
@@ -1099,6 +1276,11 @@
                     <div id="retestResult${tagIndex}"></div>
                 </div>
             `;
+            const ta = document.getElementById(`retestTextarea${tagIndex}`);
+            if (ta) {
+                ta.addEventListener('input', () => unconfirmDefinitionIfTextDrifted(tagIndex, ta.value));
+                unconfirmDefinitionIfTextDrifted(tagIndex, ta.value);
+            }
         }
 
         async function retestWithNewDefinition(tagIndex) {
@@ -1113,6 +1295,7 @@
             // 保存修改后的定义
             if (!retestState[tagIndex]) retestState[tagIndex] = {};
             retestState[tagIndex].modifiedDefinition = newDesc;
+            unconfirmDefinitionIfTextDrifted(tagIndex, newDesc);
             retestState[tagIndex].isRetesting = true;
 
             const loadingEl = document.getElementById(`retestLoading${tagIndex}`);
@@ -1173,18 +1356,31 @@
             if (loadingEl) loadingEl.style.display = 'none';
         }
 
+        /**
+         * 解析「确认定义」要落库的文案：优先重测面板内当前输入，否则用已保存的修改或接口返回定义。
+         */
+        function resolveDefinitionTextForConfirm(tagIndex) {
+            const ta = document.getElementById(`retestTextarea${tagIndex}`);
+            if (ta) {
+                const v = ta.value.trim();
+                if (v !== '') return v;
+            }
+            const st = retestState[tagIndex];
+            return (st && st.modifiedDefinition
+                || currentTags[tagIndex].tag_desc_zh
+                || currentTags[tagIndex].tag_definition
+                || '').trim();
+        }
+
         function confirmDefinition(tagIndex) {
             if (tagIndex < 0) return;
             if (!retestState[tagIndex]) retestState[tagIndex] = {};
 
+            const finalText = resolveDefinitionTextForConfirm(tagIndex);
             retestState[tagIndex].confirmed = true;
-            // 保存确认的标签定义
-            retestState[tagIndex].confirmedDefinition = retestState[tagIndex].modifiedDefinition
-                || currentTags[tagIndex].tag_desc_zh
-                || currentTags[tagIndex].tag_definition
-                || '';
+            retestState[tagIndex].confirmedDefinition = finalText;
+            retestState[tagIndex].modifiedDefinition = finalText;
 
-            // 同时保存到版本历史
             if (currentTags[tagIndex]) {
                 saveVersion(currentTags[tagIndex].tag_name, retestState[tagIndex].confirmedDefinition, '确认定义');
             }
@@ -1319,11 +1515,10 @@
 
             if (!retestState[tagIndex]) retestState[tagIndex] = {};
             retestState[tagIndex].modifiedDefinition = rolledback;
+            unconfirmDefinitionIfTextDrifted(tagIndex, rolledback);
 
-            // 保存回滚操作到历史
             saveVersion(tag.tag_name, rolledback, '回滚版本');
 
-            // 更新 textarea 如果有
             const textarea = document.getElementById(`retestTextarea${tagIndex}`);
             if (textarea) textarea.value = rolledback;
 
@@ -1610,7 +1805,7 @@
                     <div class="tag-item" id="tagCard${tagIndex}" style="border-left-color: ${borderColor}">
                         <div class="tag-header">
                             <span class="tag-name">${escapeHtml(tag.tag_name)}</span>
-                            <span class="tag-type">${escapeHtml(tagType)}</span>
+                            <!-- <span class="tag-type">${escapeHtml(tagType)}</span> -->
                         </div>
                         <div class="tag-source">匹配方式：${escapeHtml(tagMatcher)}</div>
                         <div class="confidence-bar">
@@ -1631,10 +1826,10 @@
                             </details>
                         ` : ''}
                         <div class="tag-actions">
-                            <button class="btn-sm btn-history" onclick="openHistoryPanel(${tagIndex})">📋 版本历史</button>
+                            <!-- <button class="btn-sm btn-history" onclick="openHistoryPanel(${tagIndex})">📋 版本历史</button> -->
                             <button class="btn-sm btn-retest" onclick="openRetestPanel(${tagIndex})">✏️ 修改定义并重测</button>
-                            <button class="btn-sm btn-batch-verify" onclick="openBatchVerifyPanel(${tagIndex})">🔍 批量验证</button>
-                            <button class="btn-sm" style="background:#4caf50" onclick="openAiSuggestionPanel(${tagIndex})">🤖 AI建议</button>
+                            <!-- <button class="btn-sm btn-batch-verify" onclick="openBatchVerifyPanel(${tagIndex})">🔍 批量验证</button> -->
+                            <!-- <button class="btn-sm" style="background:#4caf50" onclick="openAiSuggestionPanel(${tagIndex})">🤖 AI建议</button> -->
                             <button class="btn-sm btn-confirm" id="confirmBtn${tagIndex}" onclick="confirmDefinition(${tagIndex})">✅ 确认定义</button>
                         </div>
                         <div id="retestPanel${tagIndex}" style="display:none"></div>
@@ -1727,6 +1922,7 @@
             if (tagIndex < 0) return;
             if (!retestState[tagIndex]) retestState[tagIndex] = {};
             retestState[tagIndex].modifiedDefinition = suggestion;
+            unconfirmDefinitionIfTextDrifted(tagIndex, suggestion);
 
             // 保存到版本历史
             if (currentTags[tagIndex]) {
@@ -1896,6 +2092,7 @@
 
         // 页面加载时显示 API 地址
         apiUrlSpan.textContent = API_BASE_URL;
+        loadNewsFromJson();
     </script>
 </body>
 </html>
