@@ -1152,6 +1152,12 @@
                                 ${escapeHtml(tag.thinking_process)}
                             </div>
                         ` : ''}
+                        ${tag.confidence_reasoning ? `
+                            <div class="tag-thinking">
+                                <strong>打分依据：</strong>
+                                ${escapeHtml(tag.confidence_reasoning)}
+                            </div>
+                        ` : ''}
                         ${tagDesc ? `
                             <details class="tag-definition">
                                 <summary>📋 标签定义</summary>
