@@ -313,37 +313,6 @@
             position: relative;
         }
 
-        .highlight-keyword {
-            background: #fff3cd;
-            border-radius: 2px;
-            cursor: pointer;
-            position: relative;
-            border-bottom: 1px dashed #ffc107;
-        }
-
-        .highlight-tooltip {
-            display: none;
-            position: absolute;
-            bottom: 100%;
-            left: 0;
-            background: #333;
-            color: #fff;
-            padding: 6px 10px;
-            border-radius: 4px;
-            font-size: 12px;
-            font-family: 'Microsoft YaHei', sans-serif;
-            white-space: normal;
-            max-width: 300px;
-            z-index: 100;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-            pointer-events: none;
-            line-height: 1.4;
-        }
-
-        .highlight-keyword:hover .highlight-tooltip {
-            display: block;
-        }
-
         .diff-added {
             background: #d4edda;
             color: #155724;
@@ -1180,7 +1149,7 @@
                         ${tag.thinking_process ? `
                             <div class="tag-thinking">
                                 <strong>推理过程：</strong>
-                                ${highlightThinkingProcess(tag.thinking_process, tagDesc)}
+                                ${escapeHtml(tag.thinking_process)}
                             </div>
                         ` : ''}
                         ${tagDesc ? `
@@ -1531,41 +1500,6 @@
 
             showStatus(`已回滚至历史版本 v${versionIndex + 1}`, 'success');
             setTimeout(() => clearStatus(), 2000);
-        }
-
-        // ===== 高亮推理过程中的关键词 - 从标签定义中提取关键词并高亮
-        function highlightThinkingProcess(thinkingProcess, tagDefinition) {
-            if (!thinkingProcess || !tagDefinition) {
-                return escapeHtml(thinkingProcess || '');
-            }
-
-            // 提取标签定义中的关键词（长度 >= 2 的连续中文字或英文词）
-            const keywords = [];
-            // 匹配 2+ 中文字符
-            const cnMatches = tagDefinition.match(/[\u4e00-\u9fa5]{2,}/g) || [];
-            keywords.push(...cnMatches);
-
-            // 去重并过滤过短的词
-            const uniqueKeywords = [...new Set(keywords)].filter(k => k.length >= 2);
-
-            // 按长度降序排列，防止短词误匹配长词的一部分
-            uniqueKeywords.sort((a, b) => b.length - a.length);
-
-            let html = escapeHtml(thinkingProcess);
-            uniqueKeywords.forEach(keyword => {
-                const escapedKeyword = escapeHtml(keyword);
-                const regex = new RegExp(`(${escapeRegExp(keyword)})`, 'gi');
-                html = html.replace(regex,
-                    `<span class="highlight-keyword" data-original="${escapedKeyword}">$1` +
-                    `<span class="highlight-tooltip">命中标签定义：${escapedKeyword}</span>` +
-                    `</span>`);
-            });
-
-            return html;
-        }
-
-        function escapeRegExp(str) {
-            return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         }
 
         // HTML attribute escaping for inline event handlers
