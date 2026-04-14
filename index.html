@@ -930,15 +930,17 @@
         </div>
 
         <footer>
-            <p>MICA 标签系统前端 | 生产环境：<span id="apiUrl">http://172.22.216.8:9092</span></p>
+            <p>MICA 标签系统前端 | 生产环境：<span id="apiUrl">${API_BASE_URL}</span></p>
         </footer>
     </div>
 
     <script src="news-data.js"></script>
     <script>
         // 配置 API 地址
-        // const API_BASE_URL = 'http://172.22.216.8:9092';
-        const API_BASE_URL = 'http://172.29.177.116:9092';
+        // 本地环境
+        const API_BASE_URL = 'http://172.22.216.8:9092';
+        // dev环境
+        // const API_BASE_URL = 'http://172.29.177.116:9092';
 
         // DOM 元素
         const form = document.getElementById('tagForm');
@@ -1107,8 +1109,9 @@
             updateSaveBar();
 
             const relatedTags = currentTags.filter(tag => {
-                if ('related' in tag) return tag.related;
-                return (tag.confidence || 0) >= 0.5;
+                // if ('related' in tag) return tag.related;
+                // return (tag.confidence || 0) >= 0.5;
+                return true
             });
             if (relatedTags.length === 0) {
                 document.getElementById('totalTags').textContent = 0;
